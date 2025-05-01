@@ -5,11 +5,15 @@ on:
     branches:
       - main
       - master
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
 
 jobs:
   build-and-release:
     name: Build and Release
     runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
     
     steps:
       - name: Checkout code
@@ -122,7 +126,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           name: APK Decompiler v${{ env.VERSION }}
-          tag_name: release-${{ github.run_number }}
+          tag_name: ${{ env.LATEST_TAG }}
           draft: false
           prerelease: false
           files: |
