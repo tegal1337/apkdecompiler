@@ -1,0 +1,76 @@
+name: Auto Tag on Commit
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths-ignore:
+      - '**.md'
+      - '.github/**'
+
+jobs:
+  auto-tag:
+    name: Create Tag on Commit
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Git user
+        run: |
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'actions@github.com'
+      
+      - name: Get latest tag and commit
+        id: get_info
+        run: |
+          # Get the latest tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "LATEST_TAG=$LATEST_TAG" >> $GITHUB_ENV
+          
+          # Get the latest commit hash
+          LATEST_COMMIT=$(git rev-parse HEAD)
+          echo "LATEST_COMMIT=$LATEST_COMMIT" >> $GITHUB_ENV
+          
+          # Get the commit hash of the latest tag
+          TAG_COMMIT=$(git rev-list -n 1 $LATEST_TAG 2>/dev/null || echo "")
+          echo "TAG_COMMIT=$TAG_COMMIT" >> $GITHUB_ENV
+      
+      - name: Create new tag if needed
+        id: create_tag
+        run: |
+          # If latest commit already has a tag, skip creating a new one
+          if [ "$LATEST_COMMIT" = "$TAG_COMMIT" ]; then
+            echo "Commit $LATEST_COMMIT already has a tag $LATEST_TAG. Skipping tag creation."
+            echo "CREATED_TAG=false" >> $GITHUB_ENV
+            exit 0
+          fi
+          
+          # Parse the latest tag to get version components
+          LATEST_TAG=${LATEST_TAG#v}  # Remove the 'v' prefix
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$LATEST_TAG"
+          
+          # Increment the patch version
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="v$MAJOR.$MINOR.$NEW_PATCH"
+          
+          echo "Creating new tag $NEW_VERSION for commit $LATEST_COMMIT"
+          
+          # Create and push the new tag
+          git tag $NEW_VERSION $LATEST_COMMIT
+          git push origin $NEW_VERSION
+          
+          echo "CREATED_TAG=true" >> $GITHUB_ENV
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+      
+      - name: Output results
+        run: |
+          if [ "$CREATED_TAG" = "true" ]; then
+            echo "Created new tag $NEW_VERSION"
+          else
+            echo "No new tag created. Latest tag is $LATEST_TAG"
+          fi
