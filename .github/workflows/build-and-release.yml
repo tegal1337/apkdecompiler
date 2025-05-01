@@ -76,8 +76,17 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y curl unzip
-          curl -L -o launch4j.zip https://sourceforge.net/projects/launch4j/files/launch4j-3/3.14/launch4j-3.14-linux.zip/download
-          unzip launch4j.zip
+          
+          # Download Launch4j using a more reliable source
+          echo "Downloading Launch4j..."
+          wget -q https://downloads.sourceforge.net/project/launch4j/launch4j-3/3.14/launch4j-3.14-linux.tgz
+          
+          # Extract using tar instead of unzip
+          echo "Extracting Launch4j..."
+          tar -xzf launch4j-3.14-linux.tgz
+          
+          echo "Checking Launch4j installation..."
+          ls -la launch4j
           chmod +x launch4j/launch4j
       
       - name: Create Launch4j config file
