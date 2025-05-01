@@ -2,8 +2,9 @@ name: Build and Release
 
 on:
   push:
-    tags:
-      - 'v*.*.*'
+    branches:
+      - main
+      - master
 
 jobs:
   build-and-release:
@@ -13,6 +14,21 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Get all tags and history
+      
+      - name: Get latest tag
+        id: get_latest_tag
+        run: |
+          # Get the latest tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "LATEST_TAG=$LATEST_TAG" >> $GITHUB_ENV
+          echo "Found latest tag: $LATEST_TAG"
+          
+          # Extract version without 'v' prefix
+          VERSION=${LATEST_TAG#v}
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Using version: $VERSION"
       
       - name: Set up JDK 11
         uses: actions/setup-java@v3
@@ -24,26 +40,22 @@ jobs:
       - name: Build with Maven
         run: mvn clean package
       
-      - name: Set version from tag
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
-      
       - name: Rename JAR file
         run: cp target/apkdecompiler-1.0-SNAPSHOT-jar-with-dependencies.jar target/apkdecompiler-${{ env.VERSION }}.jar
       
       - name: Create Linux executable script
         run: |
-          cat > apkdecompiler.sh << 'EOF'
+          cat > apkdecompiler.sh << EOF
           #!/bin/bash
           # APK Decompiler v${{ env.VERSION }}
           
-          if [ $# -lt 2 ]; then
-              echo "Usage: $0 <input.apk> <output_folder>"
+          if [ \$# -lt 2 ]; then
+              echo "Usage: \$0 <input.apk> <output_folder>"
               exit 1
           fi
           
-          SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-          java -jar "$SCRIPT_DIR/apkdecompiler-${{ env.VERSION }}.jar" "$@"
+          SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+          java -jar "\$SCRIPT_DIR/apkdecompiler-${{ env.VERSION }}.jar" "\$@"
           EOF
           
           chmod +x apkdecompiler.sh
@@ -110,6 +122,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           name: APK Decompiler v${{ env.VERSION }}
+          tag_name: release-${{ github.run_number }}
           draft: false
           prerelease: false
           files: |
@@ -117,5 +130,4 @@ jobs:
             apkdecompiler-${{ env.VERSION }}-linux.tar.gz
             apkdecompiler-${{ env.VERSION }}-windows.zip
             ApkDecompiler-${{ env.VERSION }}.exe
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
