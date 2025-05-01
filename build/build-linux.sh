@@ -2,14 +2,11 @@
 
 echo "Building APK Decompiler for Linux..."
 
-# Find the project root directory (parent of the build directory)
 BUILD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$BUILD_DIR")"
 
-# Navigate to project root
 cd "$PROJECT_ROOT" || { echo "Error: Failed to navigate to project root directory"; exit 1; }
 
-# Check if Maven is installed
 if ! command -v mvn &> /dev/null; then
     echo "Maven is not installed. Please install Maven first."
     echo "On Ubuntu/Debian: sudo apt install maven"
@@ -18,7 +15,6 @@ if ! command -v mvn &> /dev/null; then
     exit 1
 fi
 
-# Check if Java is installed
 if ! command -v java &> /dev/null; then
     echo "Java is not installed. Please install Java JDK first."
     echo "On Ubuntu/Debian: sudo apt install openjdk-11-jdk"
@@ -27,17 +23,14 @@ if ! command -v java &> /dev/null; then
     exit 1
 fi
 
-# Build the project with Maven
 echo "Compiling the project with Maven..."
 mvn clean package
 
-# Check if build was successful
 if [ $? -ne 0 ]; then
     echo "Build failed. Please check the errors above."
     exit 1
 fi
 
-# Create launcher script in the project root
 echo "Creating launcher script..."
 cat > apkdecompiler << 'EOF'
 #!/bin/bash
@@ -65,10 +58,8 @@ fi
 java -jar "$JAR_PATH" "$@"
 EOF
 
-# Make the launcher script executable
 chmod +x apkdecompiler
 
-# Create symlink to /usr/local/bin for system-wide access (optional)
 echo
 echo "Do you want to create a symlink in /usr/local/bin for system-wide access? (y/n)"
 read -r answer
