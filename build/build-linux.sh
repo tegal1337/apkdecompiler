@@ -73,7 +73,7 @@ if [[ "$answer" == "y" || "$answer" == "Y" ]]; then
 fi
 
 echo
-echo "Build completed successfully!"
+echo "Build completed successfully!@"
 echo "You can now decompile APK files using:"
 echo "./apkdecompiler <input.apk> <output_folder>"
 echo
