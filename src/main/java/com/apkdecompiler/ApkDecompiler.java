@@ -7,7 +7,7 @@ import java.io.File;
 public class ApkDecompiler {
     public static void main(String[] args) {
         if (args.length < 2) {
-            System.out.println("Usage: java -jar apkdecompiler.jar <input.apk> <output_folder>");
+            System.out.println("Usage:apkdecompiler <input.apk> <output_folder>");
             System.exit(1);
         }
 
