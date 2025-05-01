@@ -1,0 +1,121 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-and-release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: maven
+      
+      - name: Build with Maven
+        run: mvn clean package
+      
+      - name: Set version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+      
+      - name: Rename JAR file
+        run: cp target/apkdecompiler-1.0-SNAPSHOT-jar-with-dependencies.jar target/apkdecompiler-${{ env.VERSION }}.jar
+      
+      - name: Create Linux executable script
+        run: |
+          cat > apkdecompiler.sh << 'EOF'
+          #!/bin/bash
+          # APK Decompiler v${{ env.VERSION }}
+          
+          if [ $# -lt 2 ]; then
+              echo "Usage: $0 <input.apk> <output_folder>"
+              exit 1
+          fi
+          
+          SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+          java -jar "$SCRIPT_DIR/apkdecompiler-${{ env.VERSION }}.jar" "$@"
+          EOF
+          
+          chmod +x apkdecompiler.sh
+      
+      - name: Create Linux distribution package
+        run: |
+          mkdir -p apkdecompiler-${{ env.VERSION }}-linux
+          cp target/apkdecompiler-${{ env.VERSION }}.jar apkdecompiler-${{ env.VERSION }}-linux/
+          cp apkdecompiler.sh apkdecompiler-${{ env.VERSION }}-linux/
+          cp README.md apkdecompiler-${{ env.VERSION }}-linux/
+          tar -czvf apkdecompiler-${{ env.VERSION }}-linux.tar.gz apkdecompiler-${{ env.VERSION }}-linux/
+      
+      - name: Set up Launch4j for Windows EXE
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl unzip
+          curl -L -o launch4j.zip https://sourceforge.net/projects/launch4j/files/launch4j-3/3.14/launch4j-3.14-linux.zip/download
+          unzip launch4j.zip
+          chmod +x launch4j/launch4j
+      
+      - name: Create Launch4j config file
+        run: |
+          cat > launch4j.xml << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <launch4jConfig>
+            <dontWrapJar>false</dontWrapJar>
+            <headerType>console</headerType>
+            <jar>target/apkdecompiler-${{ env.VERSION }}.jar</jar>
+            <outfile>ApkDecompiler-${{ env.VERSION }}.exe</outfile>
+            <errTitle>APK Decompiler</errTitle>
+            <cmdLine></cmdLine>
+            <chdir>.</chdir>
+            <priority>normal</priority>
+            <downloadUrl>http://java.com/download</downloadUrl>
+            <supportUrl></supportUrl>
+            <stayAlive>false</stayAlive>
+            <restartOnCrash>false</restartOnCrash>
+            <manifest></manifest>
+            <icon></icon>
+            <jre>
+              <path></path>
+              <bundledJre64Bit>false</bundledJre64Bit>
+              <bundledJreAsFallback>false</bundledJreAsFallback>
+              <minVersion>11.0.0</minVersion>
+              <maxVersion></maxVersion>
+              <jdkPreference>preferJre</jdkPreference>
+              <runtimeBits>64/32</runtimeBits>
+            </jre>
+          </launch4jConfig>
+          EOF
+      
+      - name: Build Windows EXE
+        run: ./launch4j/launch4j launch4j.xml
+      
+      - name: Create Windows distribution package
+        run: |
+          mkdir -p apkdecompiler-${{ env.VERSION }}-windows
+          cp ApkDecompiler-${{ env.VERSION }}.exe apkdecompiler-${{ env.VERSION }}-windows/
+          cp README.md apkdecompiler-${{ env.VERSION }}-windows/
+          zip -r apkdecompiler-${{ env.VERSION }}-windows.zip apkdecompiler-${{ env.VERSION }}-windows/
+      
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: APK Decompiler v${{ env.VERSION }}
+          draft: false
+          prerelease: false
+          files: |
+            target/apkdecompiler-${{ env.VERSION }}.jar
+            apkdecompiler-${{ env.VERSION }}-linux.tar.gz
+            apkdecompiler-${{ env.VERSION }}-windows.zip
+            ApkDecompiler-${{ env.VERSION }}.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
